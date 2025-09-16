@@ -76,7 +76,14 @@ const MovimientosCtrl = {
 
       await validarCoberturaConEmpleado(req.body.empleado_id, req.body.cubrio_turno);
 
-      const creado = await Movimiento.create(req.body);
+      // Normaliza payload
+      const payload = { ...req.body };
+      if (!payload.cubrio_turno || payload.rol_cubierto === '') payload.rol_cubierto = null;
+      payload.empleado_id = Number(payload.empleado_id);
+      if (payload.horas != null) payload.horas = Number(payload.horas);
+      payload.entregas = Number(payload.entregas);
+
+      const creado = await Movimiento.create(payload);
       res.status(201).json(creado);
     } catch (e) {
       if (e.message?.includes('Solo un AUXILIAR')) {
@@ -88,7 +95,8 @@ const MovimientosCtrl = {
 
   actualizar: async (req, res, next) => {
     try {
-      const errores = validarPayload({ ...req.body, 
+      const errores = validarPayload({
+        ...req.body,
         cubrio_turno: req.body.cubrio_turno ?? false,
         rol_cubierto: req.body.rol_cubierto ?? null
       });
@@ -99,7 +107,15 @@ const MovimientosCtrl = {
 
       await validarCoberturaConEmpleado(mov.empleado_id, req.body.cubrio_turno ?? mov.cubrio_turno);
 
-      await mov.update(req.body, { returning: true });
+      const body = { ...req.body };
+      if ((body.cubrio_turno ?? mov.cubrio_turno) === false || body.rol_cubierto === '') {
+        body.rol_cubierto = null;
+      }
+      if (body.empleado_id != null) body.empleado_id = Number(body.empleado_id);
+      if (body.horas != null) body.horas = Number(body.horas);
+      if (body.entregas != null) body.entregas = Number(body.entregas);
+
+      await mov.update(body, { returning: true });
       res.json(mov);
     } catch (e) {
       if (e.message?.includes('Solo un AUXILIAR')) {
