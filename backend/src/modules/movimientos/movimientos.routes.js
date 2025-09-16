@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { MovimientosCtrl } = require('./controlador.js');
+const { MovimientosCtrl } = require('./movimientos.controller.js');
 
 const r = Router();
 

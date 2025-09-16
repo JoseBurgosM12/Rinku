@@ -1,6 +1,6 @@
 const { Op, fn, col, literal } = require('sequelize');
 const { sequelize } = require('../models');
-const { ParametrosNomina, Nomina, NominaDetalle } = require('../modules/nominas/modelo.js');
+const { ParametrosNomina, Nomina, NominaDetalle } = require('../modules/nomina/nomina.model.js');
 const { Empleado } = require('../modules/trabajadores/trabajador.model.js');
 const { Movimiento } = require('../modules/movimientos/movimientos.model.js');
 
@@ -12,7 +12,7 @@ function rangoMes(periodo) {
   }
   const [y, m] = periodo.split('-').map(Number);
   const inicio = new Date(Date.UTC(y, m - 1, 1));
-  const fin = new Date(Date.UTC(y, m, 0)); // último día del mes
+  const fin = new Date(Date.UTC(y, m, 0)); 
   return { inicio: inicio.toISOString().slice(0, 10), fin: fin.toISOString().slice(0, 10) };
 }
 

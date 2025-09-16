@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { Movimiento } = require('./movimientos.model.js');
-const { Empleado } = require('../trabajadores/modelo.js'); 
+const { Empleado } = require('../trabajadores/trabajador.model.js'); 
 
 function validarPayload(body) {
   const errores = [];

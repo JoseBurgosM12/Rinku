@@ -48,7 +48,10 @@ const NominaDetalle = sequelize.define('NominaDetalle', {
   timestamps: false
 });
 
-// (Relaciones suaves; claves ya existen en la BD)
 NominaDetalle.belongsTo(Nomina, { foreignKey: 'nomina_id' });
 
-module.expo
+module.exports = {
+  ParametrosNomina,
+  Nomina,
+  NominaDetalle
+};
