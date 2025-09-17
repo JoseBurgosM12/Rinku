@@ -2,6 +2,11 @@ const { Op } = require('sequelize');
 const { Movimiento } = require('./movimientos.model.js');
 const { Empleado } = require('../trabajadores/trabajador.model.js'); 
 
+/**
+ * Valida el payload de la solicitud.
+ * @param {*} body 
+ * @returns 
+ */
 function validarPayload(body) {
   const errores = [];
 
@@ -20,6 +25,13 @@ function validarPayload(body) {
   return errores;
 }
 
+/**
+ * 
+ * Valida que si se marcó cubrió turno, el empleado sea AUXILIAR.
+ * @param {*} empleado_id 
+ * @param {*} cubrio_turno 
+ * @returns 
+ */
 async function validarCoberturaConEmpleado(empleado_id, cubrio_turno) {
   if (!cubrio_turno) return;
   const emp = await Empleado.findByPk(empleado_id, { attributes: ['id', 'rol'] });
@@ -31,7 +43,16 @@ async function validarCoberturaConEmpleado(empleado_id, cubrio_turno) {
   }
 }
 
+/**
+ * Controlador para gestionar movimientos.
+ */
 const MovimientosCtrl = {
+  /**
+   * Lista los movimientos.
+   * @param {*} req 
+   * @param {*} res 
+   * @param {*} next 
+   */
   listar: async (req, res, next) => {
     try {
       const { empleado_id, desde, hasta, cubrio_turno, page = 1, limit = 20 } = req.query;
@@ -59,6 +80,13 @@ const MovimientosCtrl = {
     }
   },
 
+  /**
+   * Obtiene un movimiento por su ID.
+   * @param {*} req 
+   * @param {*} res 
+   * @param {*} next 
+   * @returns 
+   */
   obtener: async (req, res, next) => {
     try {
       const mov = await Movimiento.findByPk(req.params.id);
@@ -69,6 +97,13 @@ const MovimientosCtrl = {
     }
   },
 
+  /**
+   * Crea un nuevo movimiento.
+   * @param {*} req 
+   * @param {*} res 
+   * @param {*} next 
+   * @returns 
+   */
   crear: async (req, res, next) => {
     try {
       const errores = validarPayload(req.body);
@@ -93,6 +128,13 @@ const MovimientosCtrl = {
     }
   },
 
+  /**
+   * Actualiza un movimiento.
+   * @param {*} req 
+   * @param {*} res 
+   * @param {*} next 
+   * @returns 
+   */
   actualizar: async (req, res, next) => {
     try {
       const errores = validarPayload({
@@ -124,7 +166,14 @@ const MovimientosCtrl = {
       next(e);
     }
   },
-  
+
+  /**
+   * Elimina un movimiento.
+   * @param {*} req 
+   * @param {*} res 
+   * @param {*} next 
+   * @returns 
+   */
   eliminar: async (req, res, next) => {
     try {
       const n = await Movimiento.destroy({ where: { id: req.params.id } });

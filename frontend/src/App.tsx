@@ -2,12 +2,13 @@ import { useState } from "react"
 import { Button } from "./components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card"
 import { Badge } from "./components/ui/badge"
-import { Users, Activity, Calculator, Building2 } from "lucide-react"
+import { Users, Activity, Calculator, Building2, Settings } from "lucide-react"
 import EmpleadosScreen from "./screens/EmpleadosScreen"
 import MovimientosScreen from "./screens/MovimientosScreen"
 import NominaScreen from "./screens/NominaScreen"
+import ConfiguracionScreen from "./screens/ConfiguracionScreen"
 
-type ActiveModule = "dashboard" | "empleados" | "movimientos" | "nomina"
+type ActiveModule = "dashboard" | "empleados" | "movimientos" | "nomina" | "configuracion"
 
 export default function App() {
   const [activeModule, setActiveModule] = useState<ActiveModule>("dashboard")
@@ -16,6 +17,14 @@ export default function App() {
     { id: "empleados" as const, title: "Empleados", description: "Gestión de trabajadores", icon: Users, color: "bg-blue-500" },
     { id: "movimientos" as const, title: "Movimientos", description: "Registro de actividades", icon: Activity, color: "bg-green-500" },
     { id: "nomina" as const, title: "Nómina", description: "Cálculo de sueldos", icon: Calculator, color: "bg-purple-500" },
+
+    {
+      id: "configuracion" as const,
+      title: "Configuración",
+      description: "Parámetros del sistema",
+      icon: Settings,
+      color: "bg-orange-500",
+    },
   ]
 
   const renderContent = () => {
@@ -23,6 +32,7 @@ export default function App() {
       case "empleados": return <EmpleadosScreen />
       case "movimientos": return <MovimientosScreen />
       case "nomina": return <NominaScreen />
+      case "configuracion": return <ConfiguracionScreen />
       default: return (
        <div className="space-y-8">
             <div className="text-center space-y-4">

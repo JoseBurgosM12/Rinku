@@ -1,9 +1,16 @@
-const { Op, fn, col, literal } = require('sequelize');
+const { Op } = require('sequelize');
 const { sequelize } = require('../models');
 const { ParametrosNomina, Nomina, NominaDetalle } = require('../modules/nomina/nomina.model.js');
 const { Empleado } = require('../modules/trabajadores/trabajador.model.js');
 const { Movimiento } = require('../modules/movimientos/movimientos.model.js');
 
+/**
+ * 
+ * Calcula el rango de fechas (inicio y fin) para un periodo dado en formato 'YYYY-MM'.
+ * Lanza un error si el formato es inválido.
+ * @param {string} periodo - Periodo en formato 'YYYY-MM'
+ * @returns {Object} - Objeto con las fechas de inicio y fin
+ */
 function rangoMes(periodo) {
   if (!/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(periodo)) {
     const e = new Error('Periodo inválido. Usa YYYY-MM');
@@ -12,25 +19,40 @@ function rangoMes(periodo) {
   }
   const [y, m] = periodo.split('-').map(Number);
   const inicio = new Date(Date.UTC(y, m - 1, 1));
-  const fin = new Date(Date.UTC(y, m, 0)); 
+  const fin = new Date(Date.UTC(y, m, 0));
   return { inicio: inicio.toISOString().slice(0, 10), fin: fin.toISOString().slice(0, 10) };
 }
 
+/**
+ * Obtiene los parámetros de nómina activos.
+ * @returns {Promise<Object>} - Parámetros de nómina activos
+ */
 async function obtenerParametrosActivos() {
   const p = await ParametrosNomina.findOne({ where: { activo: true }, order: [['vigente_desde', 'DESC']] });
   if (!p) throw new Error('No hay parámetros de nómina activos');
   return p;
 }
 
+/**
+ * Calcula y genera la nómina para un periodo dado.
+ * @param {string} periodo - Periodo en formato 'YYYY-MM'
+ * @returns {Promise<Object>} - Nómina generada
+ */
 async function calcularYGenerarNomina(periodo) {
   const { inicio, fin } = rangoMes(periodo);
   const params = await obtenerParametrosActivos();
 
-  const existente = await Nomina.findOne({ where: { periodo } });
+  let existente = await Nomina.findOne({ where: { periodo } });
+
   if (existente) {
-    const e = new Error('La nómina de ese periodo ya existe');
-    e.status = 409;
-    throw e;
+    if (existente.estado === "CERRADO") {
+      const e = new Error("La nómina de ese periodo ya está cerrada y no puede recalcularse");
+      e.status = 409;
+      throw e;
+    }
+    await NominaDetalle.destroy({ where: { nomina_id: existente.id } });
+    await existente.destroy();
+    existente = null;
   }
 
   const movs = await Movimiento.findAll({
@@ -90,9 +112,7 @@ async function calcularYGenerarNomina(periodo) {
     }
 
     const pagoEntregas = Number(params.pago_por_entrega) * x.entregas;
-
     const bruto = base + bono + pagoEntregas;
-
     const vales = e.tipo === 'INTERNO' ? Number(params.vales_pct) * bruto : 0;
 
     const isrRate = bruto > Number(params.isr_extra_umbral_bruto)
@@ -107,38 +127,77 @@ async function calcularYGenerarNomina(periodo) {
       dias_trabajados: x.dias,
       horas_totales: x.horas,
       entregas_totales: x.entregas,
-      base: base.toFixed(2),
-      bono: bono.toFixed(2),
-      pago_entregas: pagoEntregas.toFixed(2),
-      bruto: bruto.toFixed(2),
-      vales: vales.toFixed(2),
-      isr: isr.toFixed(2),
-      neto: neto.toFixed(2)
+      base: Number(base.toFixed(2)),
+      bono: Number(bono.toFixed(2)),
+      pago_entregas: Number(pagoEntregas.toFixed(2)),
+      bruto: Number(bruto.toFixed(2)),
+      vales: Number(vales.toFixed(2)),
+      isr: Number(isr.toFixed(2)),
+      neto: Number(neto.toFixed(2)),
+      empleado_nombre: e.nombre,
+      empleado_numero: e.numero,
+      empleado_tipo: e.tipo,
+      empleado_rol: e.rol,
     });
   }
 
   return await sequelize.transaction(async (t) => {
     const nomina = await Nomina.create(
-      { periodo, parametros_id: params.id },
+      { periodo, parametros_id: params.id, estado: "BORRADOR" },
       { transaction: t }
     );
 
     for (const det of detallesCalculados) {
+      const { empleado_nombre, empleado_numero, empleado_tipo, empleado_rol, ...soloDB } = det;
       await NominaDetalle.create(
-        { nomina_id: nomina.id, ...det },
+        { nomina_id: nomina.id, ...soloDB },
         { transaction: t }
       );
     }
 
-    const detalles = await NominaDetalle.findAll({ where: { nomina_id: nomina.id }, transaction: t });
-    return { nomina, detalles };
+    return { nomina, detalles: detallesCalculados };
   });
 }
 
+/**
+ * Obtiene una nómina con sus detalles.
+ * @param {number} id - ID de la nómina
+ * @returns {Promise<Object|null>} - Nómina con detalles o null si no existe
+ */
 async function obtenerNominaConDetalles(id) {
   const nomina = await Nomina.findByPk(id);
   if (!nomina) return null;
-  const detalles = await NominaDetalle.findAll({ where: { nomina_id: id }, order: [['empleado_id','ASC']] });
+
+  const detallesRaw = await NominaDetalle.findAll({
+    where: { nomina_id: id },
+    order: [['empleado_id','ASC']]
+  });
+
+  const empleados = await Empleado.findAll({
+    where: { id: detallesRaw.map(d => d.empleado_id) },
+    raw: true
+  });
+  const mapaEmp = new Map(empleados.map(e => [e.id, e]));
+
+  const detalles = detallesRaw.map(d => {
+    const data = d.toJSON();
+    const emp = mapaEmp.get(data.empleado_id);
+    return {
+      ...data,
+      base: Number(data.base),
+      bono: Number(data.bono),
+      pago_entregas: Number(data.pago_entregas),
+      bruto: Number(data.bruto),
+      vales: Number(data.vales),
+      isr: Number(data.isr),
+      neto: Number(data.neto),
+      empleado_nombre: emp?.nombre || null,
+      empleado_numero: emp?.numero || null,
+      empleado_tipo: emp?.tipo || null,
+      empleado_rol: emp?.rol || null,
+    };
+  });
+
   return { nomina, detalles };
 }
 

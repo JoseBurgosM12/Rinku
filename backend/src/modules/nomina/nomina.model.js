@@ -23,7 +23,12 @@ const Nomina = sequelize.define('Nomina', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   periodo: { type: DataTypes.STRING(7), allowNull: false }, // 'YYYY-MM'
   generado_en: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
-  parametros_id: { type: DataTypes.INTEGER, allowNull: false }
+  parametros_id: { type: DataTypes.INTEGER, allowNull: false },
+  estado: { 
+    type: DataTypes.ENUM('BORRADOR', 'CERRADA'),
+    allowNull: false,
+    defaultValue: 'BORRADOR'
+  }
 }, {
   tableName: 'nominas',
   timestamps: false
